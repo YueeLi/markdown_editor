@@ -6,6 +6,7 @@
   const btnCopy = document.getElementById('btn-copy');
   const btnSwap = document.getElementById('btn-swap');
   const btnTheme = document.getElementById('btn-theme');
+  const btnReader = document.getElementById('btn-reader');
   const btnClear = document.getElementById('btn-clear');
   const split = document.getElementById('split');
   const splitter = document.getElementById('splitter');
@@ -138,6 +139,24 @@
   btnSwap.addEventListener('click', () => {
     const reversed = split.style.flexDirection === 'row-reverse';
     split.style.flexDirection = reversed ? 'row' : 'row-reverse';
+  });
+
+  // Reader mode
+  function isFullscreen() { return document.fullscreenElement != null; }
+  async function enterFullscreen() { try { await document.documentElement.requestFullscreen?.(); } catch {} }
+  async function exitFullscreen() { try { await document.exitFullscreen?.(); } catch {} }
+  function toggleReader() {
+    const on = document.body.classList.toggle('reader');
+    if (on) { enterFullscreen(); toast('已进入阅读模式（按 Esc 或再点按钮退出）'); }
+    else { exitFullscreen(); }
+  }
+  btnReader?.addEventListener('click', toggleReader);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('reader')) {
+      document.body.classList.remove('reader');
+      exitFullscreen();
+    }
+    if ((e.key === 'f' || e.key === 'F') && e.shiftKey) { toggleReader(); }
   });
 
   // Resizable splitter (desktop only)
