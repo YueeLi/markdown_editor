@@ -11,7 +11,7 @@
   --accent: #0a84ff; /* macOS blue */
   --btn: #161b24;
   --shadow: 0 6px 24px rgba(0,0,0,0.25);
-  --base-font-size: 16px; /* scalable base */
+  --content-font-size: 16px; /* scalable content only */
   --reader-width: 1100px; /* wider reader by default */
 }
 
@@ -34,7 +34,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-size: var(--base-font-size);
+  font-size: 15px; /* UI baseline — independent from content zoom */
   line-height: 1.7;
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -72,7 +72,7 @@ body {
 .btn.ghost { background: transparent; color: var(--muted); }
 .btn.ghost:hover { background: rgba(0,0,0,0.04); color: var(--text); }
 
-/* segmented group for A-/A+ */
+/* segmented group */
 .seg { display: inline-flex; border-radius: 9px; overflow: hidden; border: 1px solid var(--border-soft); }
 .seg .btn { border: none; border-radius: 0; }
 .seg .btn + .btn { border-left: 1px solid var(--border-soft); }
@@ -90,13 +90,11 @@ body {
 .editor-pane textarea {
   flex: 1; width: 100%; resize: none; border: 0; outline: none;
   background: transparent; color: var(--text);
-  padding: 14px; font-size: calc(var(--base-font-size) - 1px); line-height: 1.7;
+  padding: 14px; font-size: calc(var(--content-font-size) - 1px); line-height: 1.7;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
-.preview-pane #preview { padding: 16px; overflow: auto; }
-.footer {
-  border-top: 1px solid var(--border); color: var(--muted); text-align: center; padding: 10px; background: var(--panel); backdrop-filter: saturate(180%) blur(14px);
-}
+.preview-pane #preview { padding: 16px; overflow: auto; font-size: var(--content-font-size); }
+.footer { border-top: 1px solid var(--border); color: var(--muted); text-align: center; padding: 10px; background: var(--panel); backdrop-filter: saturate(180%) blur(14px); }
 
 /* Splitter */
 .splitter { width: 8px; flex: 0 0 8px; align-self: stretch; border: 1px solid var(--border); border-radius: 10px; background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); cursor: col-resize; position: relative; }
@@ -107,7 +105,7 @@ body.resizing, .splitter:hover { cursor: col-resize; }
 body.reader .toolbar, body.reader .editor-pane, body.reader .splitter, body.reader .footer { display: none !important; }
 body.reader .split { padding: 0; height: 100vh; }
 body.reader .preview-pane { border-radius: 0; border: none; box-shadow: none; background: var(--panel); }
-body.reader .preview-pane #preview { max-width: var(--reader-width); margin: 0 auto; padding: 32px 20px; font-size: calc(var(--base-font-size) + 1px); line-height: 1.8; }
+body.reader .preview-pane #preview { max-width: var(--reader-width); margin: 0 auto; padding: 32px 20px; font-size: calc(var(--content-font-size) + 1px); line-height: 1.8; }
 body.reader .preview-pane #preview h1, body.reader .preview-pane #preview h2, body.reader .preview-pane #preview h3 { letter-spacing: 0.2px; }
 
 /* Toast */
