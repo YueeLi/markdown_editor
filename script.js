@@ -10,6 +10,9 @@
   const btnFontDec = document.getElementById('btn-font-dec');
   const btnFontInc = document.getElementById('btn-font-inc');
   const btnExportHtml = document.getElementById('btn-export-html');
+  const btnExportPdf = document.getElementById('btn-export-pdf');
+  const btnToc = document.getElementById('btn-toc');
+  const toc = document.getElementById('toc');
   const split = document.getElementById('split');
   const splitter = document.getElementById('splitter');
   const editorPane = document.querySelector('.editor-pane');
@@ -34,6 +37,8 @@
     document.documentElement.setAttribute('data-theme', next);
     localStorage.setItem(THEME_KEY, next);
     btnTheme.textContent = next === 'light' ? '深色' : '浅色';
+    // Update Mermaid theme on next render
+    render();
   });
 
   // Content font size (zoom) — affects editor + preview only
@@ -43,7 +48,7 @@
     setContentFont(base);
   })();
   function setContentFont(px) {
-    const clamped = Math.min(22, Math.max(12, Math.round(px)));
+    const clamped = Math.min(26, Math.max(12, Math.round(px)));
     document.documentElement.style.setProperty('--content-font-size', clamped + 'px');
     localStorage.setItem(ZOOM_KEY, String(clamped));
   }
@@ -72,18 +77,68 @@
     splitter?.setAttribute('aria-valuenow', String(Math.round(clamped * 100)));
   }
 
-  // Render preview + enhancements
+  // Helpers
   function slugify(s) {
     return s.toLowerCase().trim().replace(/[^a-z0-9\u4e00-\u9fa5\s-]/g, '').replace(/\s+/g, '-');
   }
-  function enhancePreview() {
+
+  // TOC build + scrollspy
+  let activeTocId = null;
+  function buildTOC() {
+    if (!toc) return;
+    const hs = Array.from(preview.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    if (!hs.length) { toc.innerHTML = ''; return; }
+    const items = hs.map(h => ({ id: h.id || (h.id = slugify(h.textContent || '')), text: h.textContent || '', level: Number(h.tagName.substring(1)) }));
+    toc.innerHTML = items.map(it => `<a href="#${it.id}" data-id="${it.id}" style="--depth:${it.level-1}">${it.text}</a>`).join('');
+    // click jump
+    toc.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => {
+      e.preventDefault(); const id = a.getAttribute('data-id'); const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+    // spy
+    const obs = new IntersectionObserver((entries) => {
+      entries.forEach(ent => {
+        if (ent.isIntersecting) {
+          activeTocId = ent.target.id;
+          toc.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.getAttribute('data-id') === activeTocId));
+        }
+      });
+    }, { root: preview, threshold: 0.2 });
+    hs.forEach(h => obs.observe(h));
+  }
+  btnToc?.addEventListener('click', () => toc?.classList.toggle('show'));
+
+  // Render preview + enhancements
+  async function enhancePreview() {
     // headings id for anchors
-    preview.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => {
-      if (!h.id) h.id = slugify(h.textContent || '');
-    });
+    preview.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!h.id) h.id = slugify(h.textContent || ''); });
     // syntax highlight
     if (window.hljs) preview.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+    // Mermaid
+    if (window.mermaid) {
+      try {
+        const theme = (document.documentElement.getAttribute('data-theme') || 'dark') === 'light' ? 'default' : 'dark';
+        mermaid.initialize({ startOnLoad: false, theme });
+        const merBlocks = preview.querySelectorAll('pre code.language-mermaid');
+        for (const codeEl of merBlocks) {
+          const code = codeEl.textContent || '';
+          const pre = codeEl.closest('pre');
+          const container = document.createElement('div');
+          container.className = 'mermaid';
+          container.textContent = code;
+          pre?.replaceWith(container);
+        }
+        await mermaid.run({ querySelector: '.mermaid' });
+      } catch (e) { /* ignore */ }
+    }
+    // KaTeX auto-render
+    if (window.renderMathInElement) {
+      try { renderMathInElement(preview, { delimiters: [ {left: '$$', right: '$$', display: true}, {left: '$', right: '$', display: false} ], throwOnError: false }); } catch {}
+    }
+    // Build TOC after enhancements
+    buildTOC();
   }
+
   function render() {
     try {
       const raw = editor.value || '';
@@ -103,12 +158,58 @@
   // Live preview
   editor.addEventListener('input', () => { render(); persist(); });
 
+  // Sync scroll (editor -> preview) using ratio mapping
+  let syncing = false;
+  editor.addEventListener('scroll', () => {
+    if (syncing) return; syncing = true;
+    const r = editor.scrollTop / Math.max(1, editor.scrollHeight - editor.clientHeight);
+    preview.scrollTop = r * Math.max(1, preview.scrollHeight - preview.clientHeight);
+    syncing = false;
+  });
+  // Also preview -> editor when user scrolls preview (optional)
+  preview.addEventListener('scroll', () => {
+    if (syncing) return; syncing = true;
+    const r = preview.scrollTop / Math.max(1, preview.scrollHeight - preview.clientHeight);
+    editor.scrollTop = r * Math.max(1, editor.scrollHeight - editor.clientHeight);
+    syncing = false;
+  });
+
   // Import file
   fileInput.addEventListener('change', async (e) => {
-    const f = e.target.files?.[0]; if (!f) return; const text = await f.text(); editor.value = text; render(); persist(); fileInput.value='';
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.type.startsWith('image/')) {
+      const dataUrl = await fileToDataURL(f);
+      insertAtCursor(editor, `\n![${f.name}](${dataUrl})\n`);
+    } else {
+      const text = await f.text(); editor.value = text;
+    }
+    render(); persist(); fileInput.value='';
   });
   document.addEventListener('dragover', (e) => { e.preventDefault(); });
-  document.addEventListener('drop', async (e) => { e.preventDefault(); const f = e.dataTransfer?.files?.[0]; if (!f) return; const text = await f.text(); editor.value = text; render(); persist(); });
+  document.addEventListener('drop', async (e) => {
+    e.preventDefault(); const f = e.dataTransfer?.files?.[0]; if (!f) return;
+    if (f.type && f.type.startsWith('image/')) {
+      const dataUrl = await fileToDataURL(f);
+      insertAtCursor(editor, `\n![${f.name}](${dataUrl})\n`);
+      render(); persist();
+    } else {
+      const text = await f.text(); editor.value = text; render(); persist();
+    }
+  });
+  // Paste images
+  editor.addEventListener('paste', async (e) => {
+    const items = e.clipboardData?.items; if (!items) return;
+    for (const it of items) {
+      if (it.kind === 'file') {
+        const file = it.getAsFile(); if (file && file.type.startsWith('image/')) {
+          e.preventDefault(); const dataUrl = await fileToDataURL(file);
+          insertAtCursor(editor, `\n![${file.name || 'image'}](${dataUrl})\n`);
+          render(); persist(); return;
+        }
+      }
+    }
+  });
 
   // Export markdown
   btnExport.addEventListener('click', () => {
@@ -129,10 +230,14 @@
       code{background:#f4f7ff;padding:2px 6px;border-radius:6px}
       blockquote{border-left:3px solid #305188;margin:12px 0;padding-left:12px;color:#334}
       a{color:#0a84ff;text-decoration:none}a:hover{text-decoration:underline}
+      img{max-width:100%;}
     </style><div class=\"content\">${preview.innerHTML}</div></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${title.replace(/\s+/g,'_')}.html`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},0);
   });
+
+  // Export PDF via print (no watermark, uses print CSS)
+  btnExportPdf?.addEventListener('click', () => { window.print(); });
 
   // Copy to clipboard
   btnCopy.addEventListener('click', async () => { try { await navigator.clipboard.writeText(editor.value || ''); toast('已复制到剪贴板'); } catch { toast('复制失败，请手动 Ctrl/Cmd+C'); } });
@@ -158,8 +263,39 @@
   splitter?.addEventListener('pointerup', endDrag); splitter?.addEventListener('pointercancel', endDrag);
   splitter?.addEventListener('keydown', (e) => { const step = 0.02; if (e.key === 'ArrowLeft') { ratio = Math.max(1/3, (parseFloat(editorPane.style.flexBasis)/100 || 0.5) - step); applySplit(ratio); localStorage.setItem(SPLIT_KEY, String(ratio)); e.preventDefault(); } else if (e.key === 'ArrowRight') { ratio = Math.min(2/3, (parseFloat(editorPane.style.flexBasis)/100 || 0.5) + step); applySplit(ratio); localStorage.setItem(SPLIT_KEY, String(ratio)); e.preventDefault(); } });
 
+  // Task list toggle (preview -> source)
+  preview.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || t.type !== 'checkbox') return;
+    const li = t.closest('li'); if (!li) return;
+    const label = (li.textContent || '').trim();
+    const src = editor.value;
+    // try toggle first occurrence of "- [ ] label" / "- [x] label"
+    const unchecked = new RegExp(`(^|\n)[\t\s]*[-*+] \[ \] ${escapeRegExp(label)}(\n|$)`);
+    const checked = new RegExp(`(^|\n)[\t\s]*[-*+] \[x\] ${escapeRegExp(label)}(\n|$)`, 'i');
+    let next = src;
+    if (t.checked) {
+      if (unchecked.test(src)) next = src.replace(unchecked, (m, p1, p2) => `${p1}- [x] ${label}${p2}`);
+    } else {
+      if (checked.test(src)) next = src.replace(checked, (m, p1, p2) => `${p1}- [ ] ${label}${p2}`);
+    }
+    if (next !== src) { editor.value = next; render(); persist(); }
+  });
+
   // Clear content
   document.getElementById('btn-clear')?.addEventListener('click', () => { if (!editor.value) return; if (confirm('确定清空当前内容吗？该操作不可撤销。')) { editor.value=''; render(); persist(); } });
 
+  // Utils
   function toast(msg) { const el = document.createElement('div'); el.textContent = msg; el.className = 'toast'; document.body.appendChild(el); setTimeout(() => el.classList.add('show')); setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.remove(), 200); }, 1600); }
+  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function fileToDataURL(file) { return new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(file); }); }
+  function insertAtCursor(textarea, text) {
+    const start = textarea.selectionStart ?? textarea.value.length;
+    const end = textarea.selectionEnd ?? textarea.value.length;
+    const before = textarea.value.slice(0, start);
+    const after = textarea.value.slice(end);
+    textarea.value = before + text + after;
+    const pos = start + text.length;
+    textarea.setSelectionRange(pos, pos);
+  }
 })();
