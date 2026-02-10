@@ -108,11 +108,13 @@ body.reader .preview-pane { border-radius: 0; border: none; box-shadow: none; ba
 body.reader .preview-pane #preview { max-width: var(--reader-width); margin: 0 auto; padding: 32px 20px; font-size: calc(var(--content-font-size) + 1px); line-height: 1.8; }
 body.reader .preview-pane #preview h1, body.reader .preview-pane #preview h2, body.reader .preview-pane #preview h3 { letter-spacing: 0.2px; }
 
-/* TOC */
-.toc { position: absolute; top: 44px; right: 10px; bottom: 10px; width: 240px; overflow: auto; border-left: 1px dashed var(--border); padding-left: 10px; display: none; }
+/* TOC - floating left with preview tooltip */
+.toc { position: fixed; top: 56px; left: 10px; bottom: 10px; width: 260px; overflow: auto; border-right: 1px dashed var(--border); padding: 8px 10px; border-radius: 10px; background: var(--panel); backdrop-filter: saturate(180%) blur(10px); display: none; z-index: 30; }
 .toc.show { display: block; }
 .toc a { display: block; color: var(--muted); text-decoration: none; padding: 4px 6px; border-radius: 6px; margin-left: calc(var(--depth, 0) * 10px); }
 .toc a.active { color: var(--text); background: rgba(10,132,255,0.12); }
+#toc-tip { position: fixed; display: none; max-width: 320px; max-height: 200px; overflow: auto; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2); box-shadow: var(--shadow); z-index: 40; }
+#toc-tip.show { display: block; }
 
 /* Toast */
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%) translateY(12px); opacity: 0; transition: .2s ease; background: #0f1a2b; color: #e6f0ff; padding: 8px 12px; border: 1px solid #22314a; border-radius: 10px; font-weight: 600; }
@@ -130,6 +132,14 @@ body.reader .preview-pane #preview h1, body.reader .preview-pane #preview h2, bo
 .markdown-body a:hover { text-decoration: underline; }
 .markdown-body blockquote { border-left: 3px solid #305188; margin: 12px 0; padding-left: 12px; color: #cad6ea; }
 :root[data-theme="light"] .markdown-body blockquote { border-color: #b1c9ff; color: #33415c; }
+
+/* Tables */
+.markdown-body table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: var(--content-font-size); }
+.markdown-body th, .markdown-body td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; }
+.markdown-body thead th { background: rgba(10,132,255,0.08); }
+:root[data-theme="light"] .markdown-body thead th { background: #ecf3ff; }
+.markdown-body tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+:root[data-theme="light"] .markdown-body tr:nth-child(even) td { background: #fafcff; }
 
 /* Print */
 @media print {
