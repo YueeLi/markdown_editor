@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Markdown Editor｜实时预览</title>
-  <meta name="description" content="轻量级 Markdown 在线编辑器：导入/导出/复制、左右分栏实时预览、可切换左右侧。" />
+  <meta name="description" content="轻量级 Markdown 在线编辑器：导入/导出/复制、左右分栏实时预览、可切换左右侧、可拖拽分割、深浅色。" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230a7cff'/%3E%3Ctext x='50' y='62' font-size='54' text-anchor='middle' fill='white' font-family='system-ui,Segoe UI,Roboto,Helvetica,Arial' font-weight='700'%3EMD%3C/text%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./style.css" />
   <script defer src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -24,6 +24,7 @@
       <button id="btn-export" class="btn" title="导出 Markdown 文件">导出</button>
       <button id="btn-copy" class="btn" title="复制到剪贴板">复制</button>
       <button id="btn-swap" class="btn" title="左右切换">左右切换</button>
+      <button id="btn-theme" class="btn" title="深/浅色切换">主题</button>
       <button id="btn-clear" class="btn ghost" title="清空内容">清空</button>
     </div>
   </header>
@@ -31,8 +32,10 @@
   <main class="split" id="split">
     <section class="pane editor-pane" aria-label="编辑器">
       <div class="pane-head">编辑</div>
-      <textarea id="editor" placeholder="# 从这里开始写 Markdown...\n\n- 支持导入/导出/复制\n- 左右分栏实时预览\n- 点击“左右切换”可互换位置"></textarea>
+      <textarea id="editor" placeholder="# 从这里开始写 Markdown...\n\n- 支持导入/导出/复制\n- 左右分栏实时预览\n- 点击“左右切换”可互换位置\n- 拖动中间分割条可调整宽度（上限 2/3）"></textarea>
     </section>
+
+    <div id="splitter" class="splitter" role="separator" aria-orientation="vertical" aria-label="调整编辑与预览宽度" tabindex="0"></div>
 
     <section class="pane preview-pane" aria-label="预览">
       <div class="pane-head">预览</div>
