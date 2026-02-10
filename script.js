@@ -12,7 +12,6 @@
   const btnExportHtml = document.getElementById('btn-export-html');
   const btnExportPdf = document.getElementById('btn-export-pdf');
   const btnToc = document.getElementById('btn-toc');
-  const tocDepthSel = document.getElementById('toc-depth');
   const toc = document.getElementById('toc');
   const split = document.getElementById('split');
   const splitter = document.getElementById('splitter');
@@ -25,7 +24,6 @@
   const SPLIT_KEY = 'markdown_editor_split_ratio_v1';
   const THEME_KEY = 'markdown_editor_theme';
   const ZOOM_KEY = 'markdown_editor_content_font_px';
-  let MAX_TOC_LEVEL = Number(tocDepthSel?.value || 4);
 
   // Theme setup
   (function initTheme() {
@@ -84,71 +82,29 @@
   function fileToDataURL(file) { return new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(file); }); }
   function insertAtCursor(textarea, text) { const start = textarea.selectionStart ?? textarea.value.length; const end = textarea.selectionEnd ?? textarea.value.length; const before = textarea.value.slice(0, start); const after = textarea.value.slice(end); textarea.value = before + text + after; const pos = start + text.length; textarea.setSelectionRange(pos, pos); }
 
-  // Sections map for collapse
-  let sections = [];
-  function buildSections() {
-    const hs = Array.from(preview.querySelectorAll('h1,h2,h3,h4,h5,h6'));
-    sections = [];
-    for (let i = 0; i < hs.length; i++) {
-      const h = hs[i]; const level = Number(h.tagName.substring(1));
-      let end = preview.lastElementChild?.nextSibling || null;
-      for (let j = i + 1; j < hs.length; j++) {
-        const h2 = hs[j]; const level2 = Number(h2.tagName.substring(1));
-        if (level2 <= level) { end = h2; break; }
-      }
-      sections.push({ id: h.id || (h.id = slugify(h.textContent || '')), start: h, end, level });
-    }
-  }
-  const collapsed = new Set();
-  function toggleCollapse(id) {
-    const sec = sections.find(s => s.id === id); if (!sec) return;
-    const isCollapsed = collapsed.has(id);
-    if (isCollapsed) collapsed.delete(id); else collapsed.add(id);
-    // hide elements between start.next and end.prev
-    let cur = sec.start.nextElementSibling;
-    while (cur && cur !== sec.end) { const next = cur.nextElementSibling; cur.style.display = isCollapsed ? '' : 'none'; cur = next; }
-    // mark in TOC
-    toc.querySelectorAll('a').forEach(a => { if (a.dataset.id === id) a.classList.toggle('collapsed', !isCollapsed); });
-  }
-
-  // TOC build + scrollspy + collapse + depth filter + thumb preview
-  let activeTocId = null;
-  let tipEl = null;
-  function ensureTip() { if (!tipEl) { tipEl = document.createElement('div'); tipEl.id = 'toc-tip'; document.body.appendChild(tipEl); } }
+  // TOC build + scrollspy (no collapse, no depth filter, no tooltip)
   function buildTOC() {
     if (!toc) return;
-    buildSections();
-    const items = sections.filter(s => s.level <= MAX_TOC_LEVEL);
-    toc.innerHTML = items.map(it => `<div class=\"toc-item\"><a href=\"#${it.id}\" data-id=\"${it.id}\" style=\"--depth:${it.level-1}\">${it.text || it.id}</a><button class=\"btn ghost\" data-collapse=\"${it.id}\" title=\"折叠/展开\">▾</button></div>`).join('');
+    const hs = Array.from(preview.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+    hs.forEach(h => { if (!h.id) h.id = slugify(h.textContent || ''); });
+    toc.innerHTML = hs.map(h => {
+      const level = Number(h.tagName.substring(1));
+      const id = h.id; const text = h.textContent || id;
+      return `<a href="#${id}" data-id="${id}" style="--depth:${level-1}">${text}</a>`;
+    }).join('');
     // click jump
     toc.querySelectorAll('a').forEach(a => a.addEventListener('click', (e) => { e.preventDefault(); const id = a.getAttribute('data-id'); const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }));
-    // collapse
-    toc.querySelectorAll('button[data-collapse]').forEach(b => b.addEventListener('click', (e) => { const id = b.getAttribute('data-collapse'); toggleCollapse(id); }));
-    // preview tooltip
-    ensureTip();
-    toc.querySelectorAll('a').forEach(a => {
-      a.addEventListener('mouseenter', (e) => {
-        const id = a.getAttribute('data-id'); const sec = sections.find(s => s.id === id); if (!sec) return;
-        let html = '';
-        let cur = sec.start.nextElementSibling; let count = 0;
-        while (cur && cur !== sec.end && count < 4) { html += cur.outerHTML || ''; cur = cur.nextElementSibling; count++; }
-        tipEl.innerHTML = html || '<span style="color:var(--muted)">（空段落）</span>';
-        const rect = a.getBoundingClientRect(); tipEl.style.top = (rect.top + 8) + 'px'; tipEl.style.left = (rect.right + 8) + 'px'; tipEl.classList.add('show');
-      });
-      a.addEventListener('mouseleave', () => { tipEl.classList.remove('show'); });
-    });
     // spy
     const obs = new IntersectionObserver((entries) => {
-      entries.forEach(ent => { if (ent.isIntersecting) { activeTocId = ent.target.id; toc.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.getAttribute('data-id') === activeTocId)); } });
+      entries.forEach(ent => { if (ent.isIntersecting) { const activeId = ent.target.id; toc.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.getAttribute('data-id') === activeId)); } });
     }, { root: preview, threshold: 0.2 });
-    sections.forEach(s => obs.observe(s.start));
+    hs.forEach(h => obs.observe(h));
   }
   btnToc?.addEventListener('click', () => toc?.classList.toggle('show'));
-  tocDepthSel?.addEventListener('change', () => { MAX_TOC_LEVEL = Number(tocDepthSel.value || 4); buildTOC(); });
 
   // Render preview + enhancements
   async function enhancePreview() {
-    preview.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => { if (!h.id) h.id = slugify(h.textContent || ''); });
+    // headings id for anchors (already ensured in buildTOC)
     // syntax highlight
     if (window.hljs) preview.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
     // Mermaid
